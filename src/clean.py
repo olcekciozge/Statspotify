@@ -25,15 +25,20 @@ def load_history(data_dir="data"):
     )
 
 
-def clean_history(df, min_ms=MIN_MS_PLAYED, tz="Europe/Istanbul"):
-    """Keep music plays only, drop short listens, convert timestamps."""
+def clean_history(df, min_ms=MIN_MS_PLAYED, tz="Europe/Istanbul", keep_short=False):
+    """Keep music plays only and convert timestamps.
+
+    Plays shorter than min_ms are dropped, or kept and flagged in an
+    `is_short` column when keep_short=True.
+    """
     df = df[list(COLUMNS)].rename(columns=COLUMNS)
 
     # Podcasts and unknown items have no track/artist name
-    df = df.dropna(subset=["track", "artist"])
+    df = df.dropna(subset=["track", "artist"]).copy()
 
-    # Drop very short listens (skips)
-    df = df[df["ms_played"] >= min_ms].copy()
+    df["is_short"] = df["ms_played"] < min_ms
+    if not keep_short:
+        df = df[~df["is_short"]].copy()
 
     # UTC string -> timezone-aware datetime in local time
     df["played_at"] = pd.to_datetime(df["played_at"], utc=True).dt.tz_convert(tz)

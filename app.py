@@ -1,9 +1,16 @@
+from html import escape
+
 import streamlit as st
 
-from src.charts import listening_heatmap, monthly_hours_chart, top_artists_chart
+from src.charts import (
+    listening_heatmap,
+    monthly_hours_chart,
+    new_artists_chart,
+    skip_rate_chart,
+    top_artists_chart,
+)
 from src.clean import clean_history, load_history
 from src.stats import top_items, yearly_favorites
-from html import escape
 
 st.set_page_config(page_title="Spotify Listening History", layout="wide")
 
@@ -11,10 +18,12 @@ st.set_page_config(page_title="Spotify Listening History", layout="wide")
 @st.cache_data
 def load_data():
     """Load and clean the data once, then reuse it between reruns."""
-    return clean_history(load_history())
+    return clean_history(load_history(), keep_short=True)
 
 
-df = load_data()
+# all_plays includes short listens (needed for skip rates), df is the usual view
+all_plays = load_data()
+df = all_plays[~all_plays["is_short"]]
 
 # ---- Sidebar filters ----
 st.sidebar.header("Filters")
@@ -40,10 +49,17 @@ if len(date_range) != 2:
     st.stop()
 
 start, end = date_range
-mask = (df["played_at"].dt.date >= start) & (df["played_at"].dt.date <= end)
-if selected_artists:
-    mask &= df["artist"].isin(selected_artists)
-filtered = df[mask]
+
+
+def apply_filters(data):
+    mask = (data["played_at"].dt.date >= start) & (data["played_at"].dt.date <= end)
+    if selected_artists:
+        mask &= data["artist"].isin(selected_artists)
+    return data[mask]
+
+
+filtered = apply_filters(df)
+filtered_all = apply_filters(all_plays)
 
 if filtered.empty:
     st.warning("No listening data for this selection.")
@@ -79,6 +95,10 @@ for card, row in zip(cards, favorites.itertuples()):
 st.plotly_chart(top_artists_chart(filtered), width="stretch")
 st.plotly_chart(monthly_hours_chart(filtered), width="stretch")
 st.plotly_chart(listening_heatmap(filtered), width="stretch")
+st.plotly_chart(new_artists_chart(df, start, end), width="stretch")
+
+min_plays = st.slider("Minimum plays for skip rate", 20, 300, 100, step=10)
+st.plotly_chart(skip_rate_chart(filtered_all, min_plays=min_plays), width="stretch")
 
 st.subheader("Explore rankings")
 c1, c2, c3, c4 = st.columns(4)
