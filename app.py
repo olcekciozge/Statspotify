@@ -2,6 +2,8 @@ import streamlit as st
 
 from src.charts import listening_heatmap, monthly_hours_chart, top_artists_chart
 from src.clean import clean_history, load_history
+from src.stats import top_items, yearly_favorites
+from html import escape
 
 st.set_page_config(page_title="Spotify Listening History", layout="wide")
 
@@ -56,6 +58,53 @@ col1.metric("Hours listened", f"{filtered['minutes_played'].sum() / 60:,.0f}")
 col2.metric("Unique artists", f"{filtered['artist'].nunique():,}")
 col3.metric("Unique tracks", f"{filtered['track_uri'].nunique():,}")
 
+st.subheader("Track of the year")
+favorites = yearly_favorites(filtered)
+cards = st.columns(len(favorites))
+for card, row in zip(cards, favorites.itertuples()):
+    with card.container(border=True):
+        st.markdown(
+            f"""
+<div style="font-size:0.85rem; opacity:0.7;">{row.year}</div>
+<div style="font-size:1.25rem; font-weight:700; line-height:1.25; margin:0.2rem 0;">{escape(row.track)}</div>
+<div>{escape(row.artist)}</div>
+<div style="color:#1DB954; font-weight:600; margin-bottom:0.9rem;">{row.track_plays} plays</div>
+<div style="font-size:0.85rem; opacity:0.7;">Most listened artist</div>
+<div style="font-weight:600;">{escape(row.top_artist)}</div>
+<div style="color:#1DB954; font-weight:600;">{row.artist_plays} plays</div>
+""",
+            unsafe_allow_html=True,
+        )
+
 st.plotly_chart(top_artists_chart(filtered), width="stretch")
 st.plotly_chart(monthly_hours_chart(filtered), width="stretch")
 st.plotly_chart(listening_heatmap(filtered), width="stretch")
+
+st.subheader("Explore rankings")
+c1, c2, c3, c4 = st.columns(4)
+
+kind = c1.selectbox("Rank", ["Tracks", "Artists", "Albums"])
+years = sorted((int(y) for y in filtered["played_at"].dt.year.unique()), reverse=True)
+year_choice = c2.selectbox("Year", ["All time"] + years)
+sort_choice = c3.selectbox("Sort by", ["Plays", "Hours"])
+top_n = c4.slider("Show top", min_value=10, max_value=100, value=25, step=5)
+
+ranking = top_items(
+    filtered,
+    by={"Tracks": "track", "Artists": "artist", "Albums": "album"}[kind],
+    n=top_n,
+    year=None if year_choice == "All time" else year_choice,
+    sort_by=sort_choice.lower(),
+)
+st.dataframe(
+    ranking,
+    width="stretch",
+    height=min(35 * (len(ranking) + 1) + 3, 600),
+    column_config={
+        "track": "Track",
+        "artist": "Artist",
+        "album": "Album",
+        "plays": "Plays",
+        "hours": st.column_config.NumberColumn("Hours", format="%.1f"),
+    },
+)
