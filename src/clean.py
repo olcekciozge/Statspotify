@@ -2,6 +2,9 @@ from pathlib import Path
 
 import pandas as pd
 
+ROOT = Path(__file__).resolve().parent.parent
+FILE_PATTERN = "Streaming_History_Audio_*.json"
+
 # Spotify counts a stream only after 30 seconds of playback
 MIN_MS_PLAYED = 30_000
 
@@ -15,11 +18,23 @@ COLUMNS = {
 }
 
 
-def load_history(data_dir="data"):
-    """Read and concatenate all Streaming_History_Audio_*.json files."""
-    files = sorted(Path(data_dir).glob("Streaming_History_Audio_*.json"))
+def using_sample_data(data_dir=ROOT / "data"):
+    """True when no personal export is found and the demo data is used instead."""
+    return not any(Path(data_dir).glob(FILE_PATTERN))
+
+
+def load_history(data_dir=ROOT / "data", sample_dir=ROOT / "sample_data"):
+    """Read and concatenate all Streaming_History_Audio_*.json files.
+
+    Falls back to the synthetic demo data when there is no personal export.
+    """
+    files = sorted(Path(data_dir).glob(FILE_PATTERN))
     if not files:
-        raise FileNotFoundError(f"No streaming history files found in '{data_dir}'")
+        files = sorted(Path(sample_dir).glob(FILE_PATTERN))
+    if not files:
+        raise FileNotFoundError(
+            f"No streaming history files found in '{data_dir}' or '{sample_dir}'"
+        )
     return pd.concat(
         [pd.read_json(f, encoding="utf-8") for f in files], ignore_index=True
     )

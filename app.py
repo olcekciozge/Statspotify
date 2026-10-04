@@ -9,7 +9,7 @@ from src.charts import (
     skip_rate_chart,
     top_artists_chart,
 )
-from src.clean import clean_history, load_history
+from src.clean import clean_history, load_history, using_sample_data
 from src.stats import top_items, yearly_favorites
 
 st.set_page_config(page_title="Spotify Listening History", layout="wide")
@@ -68,6 +68,12 @@ if filtered.empty:
 # ---- Main page ----
 st.title("Spotify Listening History")
 st.caption(f"{start:%d %b %Y} - {end:%d %b %Y}")
+
+if using_sample_data():
+    st.info(
+        "Demo mode: this dashboard shows synthetic listening data. "
+        "To see your own stats, run it locally with your Spotify export (see the README)."
+    )
 
 col1, col2, col3 = st.columns(3)
 col1.metric("Hours listened", f"{filtered['minutes_played'].sum() / 60:,.0f}")
