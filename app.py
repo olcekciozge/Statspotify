@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.charts import monthly_hours_chart, top_artists_chart
+from src.charts import listening_heatmap, monthly_hours_chart, top_artists_chart
 from src.clean import clean_history, load_history
 
 st.set_page_config(page_title="Spotify Listening History", layout="wide")
@@ -58,3 +58,4 @@ col3.metric("Unique tracks", f"{filtered['track_uri'].nunique():,}")
 
 st.plotly_chart(top_artists_chart(filtered), width="stretch")
 st.plotly_chart(monthly_hours_chart(filtered), width="stretch")
+st.plotly_chart(listening_heatmap(filtered), width="stretch")
